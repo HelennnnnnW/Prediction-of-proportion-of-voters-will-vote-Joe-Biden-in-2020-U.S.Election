@@ -1,0 +1,161 @@
+---
+title: "Prediction of proportion of voters will vote Joe Biden in 2020 U.S.Election"
+author: "Shihan Wang 1005165063 Wenyu Shu 1004951082 Kefan Cai 1004819949"
+date: "Nov.1st, 2020"
+output:
+  word_document: default
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(dplyr)
+library(broom)
+
+survey_data <- read_csv("survey_data.csv")
+census_data <- read_csv("census_data.csv")
+
+```
+
+# Model
+
+  In order to predict the outcome of the US. election 2020, which will occur on 3 November to see who will be the next President of the United States(The Visual and Data Journalism Team, 2020). A multiple logistic regression model and the post-stratification technique would be a good choice to predict the outcome. This will be elaborated in the following sub-sections.
+
+
+## Model Specifics
+
+  Multiple logistic Regression Model is used to model a binary response variable$(y)$, based on predictors$(xi)$. To be more specific, $p$ is denoted as the case when $y=1$, represents the probability of an event occurring, which means vote Binden in this case. $Beta0$ is considered as an intercept(constant) while $Beta1$ to $Beta4$ represents the coefficient correspond to each predictor x. The left side of the equation is called the logit function.
+
+Mathematic notation:
+
+$$ 
+  log(p/1-p) = \beta_{0}+\beta_1  x_{age group} + \beta_2  x_{race} + \beta_3  x_{sex}+\beta_4  x_{employment}
+$$
+
+  Multiple logistic regression model can be considered as an appropriate model to predict 2020 US. election outcomes since $y$ are expected as dichotomous. In order to adopt this model, four predictors including age groups, race, sex, and employment were chosen. As the notation provided, $Beta1$ meaning one unit increase in the age group will lead to $Beta1$ increases in the probability of voting Biden.(same logic for $Beta2$, $Beta3$ and $Beat4$).
+
+
+##model 1
+```{r,echo=FALSE}
+model1 <- glm(vote_Biden ~ sex + race + employment, 
+            data=survey_data, family = "binomial")
+broom::tidy(model1)
+```
+##AIC for model 1
+```{r,echo=FALSE}
+AIC(model1, k = 2)
+```
+
+
+
+##model 2
+```{r,echo=FALSE}
+model2 <- glm(vote_Biden ~ age_group + race + sex + employment, 
+            data=survey_data, family = "binomial")
+broom::tidy(model2)
+```
+##AIC for model 2
+```{r,echo=FALSE}
+AIC(model2, k = 2)
+```
+
+
+##Anova
+```{r,echo=FALSE}
+anova(model1, model2, test = 'Chisq')
+```
+
+
+  Based on the AIC and P-value, model 2 is selected as a better model(will be elaborate in the result section).
+
+## Post-Stratification 
+
+  Since the objective is to predict the ratios of the population who will vote for Biden in the U.S. 2020 Election, a post-stratification technique is a good choice. The model2 described in the above model section includes four predictors, it will be explained in detail:
+  
+  Firstly, in terms of the data age, people who are under 18 were removed since they have no right to vote, then the remaining data were classified into three groups: youth(18~24), adult(25~59), and senior(older than 60). This is because it will make the data tidier. A new data named age group was created and has three different cells.
+  
+  Then, data race was recategorized into seven diverse cells including: white, black/african american/negro,american indian or alaska native,other races or mixed-blood,chinese,japanese,other asian or pacific islander. Due to the large population in each group, this categorization will make the results more convincing. Choosing this data is because it is likely to influence the voter outcome.
+  
+  For the remaining two data: sex and employment, they were classified into female and male, employed, unemployed, and not in labor force respectively. Therefore each of these them contains two cells and three cells.
+  
+  The last step should be group by the above cells, meaning multiply cells described above$(3*7*2*3=126)$ to get a total of 126 cells. Then by applying the model2, the ratios of voters in each cell can be estimated. By sum these estimated value with the  Corresponding population of each cell, and then divided by the whole population size. The final proportion of the voters who prefer voting Biden can be calculated.
+  
+Mathematic notation:
+
+$$ 
+  \frac{\sum N_j \hat{y}_j}{\sum N_j} = \hat{y}^{PS}
+$$
+where ${\sum N_j}$ represents the population size of $j^{th}$ cell, $\hat{y}_j$ means the estimate in each cell that were constructed and $\hat{y}^{PS}$ represents the estimate $y$ based on post-stratification. 
+
+
+
+```{r,echo=FALSE}
+
+census_data$estimate <-
+  model2 %>%
+  predict(newdata = census_data)
+
+census_data$estimate <-
+  exp(census_data$estimate)/(1+exp(census_data$estimate))
+
+census_data %>%
+  mutate(alp_predict_prop = estimate*n) %>%
+  summarise(alp_predict = sum(alp_predict_prop)/sum(n))
+
+```
+
+
+# Results
+
+  The logistic regression model estimates that the probability of voters chooses to vote for Joe Biden in the 2020 American Presidential Election, $$\hat{y}^{PS}$$, is 0.421.  This model uses the post-stratification method to calculate the proportion of the voters who prefer voting for Joe Biden based on their sex, age groups, race, and employment status from the survey data of the Nationscape Data Set and the census data of the American Community Surveys.  
+  
+  The model checking of comparing AIC and using ANOVA test both shows the result that the logistic regression model (model2), with 4 variables (sex, age groups, race, employment), is better than the logistic regression model (model1), which contains 3 variables (sex, race, employment).  Specifically, the AIC value of model2 (8510.6) is smaller than model1 (8510.7), and the ANOVA p-value of model1 and model2 is larger than 0.05, which also corroborates model2 is better than model1.
+
+
+# Discussion
+
+In this analysis, the multiple logistic regression model and the post-stratification technique are used to predict the vote of the 2020 American federal election. 
+  
+  Firstly, the variables of sex, age, race, and employment status have been chosen to be the four predictor variables to build the logistic regression model. Next, to improve the model, post-stratification is used here. The first step of post-stratification is removing the data of people who don't have voting power to get new clean data. Then the new data can be selected as three groups: youth(18~24), adult(25~59), and senior(older than 60). Furthermore, race type is divided in seven types as white, black/african american/negro, american indian or alaska native, other races or mixed-blood, chinese, japanese, other asian or pacific islander. Gender types are female and male and employment status is devided as employed, unemployed, and not in the labor force. 
+  
+  Therefore, 126 cells can be created by the steps above to fit the model2 and calculate the final proportion by the formula. The result is 0.421, it means that there are 42.1% of people who prefer voting for Joe Biden. So that 42.1% of people will vote for Joe Biden can be estimated from the analysis.
+
+## Weaknesses
+
+  One weakness is that reliability maybe not strong enough to predict the result. Since the data is for 2018, some changes including environmental change and personal change may happen in 2 years. For the environment change, some factors such as migration, change in age, death, and so on can cause a change in the number of citizens and their status of the voting power. For personal reasons, people's minds may change now and take a different choice from 2018. 
+  
+## Next Steps
+
+  Since the analysis still has some limitations, some further steps can be taken to improve the model. For example, the data can be updated by a newer one since 2018 is two years ago. Moreover, in this analysis, only four variables have been taken but actually, there are many other factors that would affect the result. So a model can include more variables that can be better in predicting the result.
+  
+
+# References：
+# R & R packages:
+```{r,echo=FALSE}
+citation("dplyr")
+citation("tidyverse")
+citation('haven')
+citation('broom')
+citation()
+```
+
+#survey data:
+Tausanovitch, Chris and Lynn Vavreck. 2020. Democracy Fund + UCLA Nationscape, October 10-17, 2019 (version 20200814). Retrieved from https://www.voterstudygroup.org/publication/nationscape-data-set
+
+#census data:
+Steven Ruggles, Sarah Flood, Ronald Goeken, Josiah Grover, Erin Meyer, Jose Pacas and Matthew Sobek. IPUMS USA: Version 10.0 [dataset]. Minneapolis, MN: IPUMS, 2020. 
+https://doi.org/10.18128/D010.V10.0
+
+
+#Data cleaning code:
+Phillips, N. (2018, January 22). YaRrr! The Pirate's Guide to R. Retrieved November 02, 2020, from https://bookdown.org/ndphillips/YaRrr/dataframe-column-names.html
+
+
+#Model:
+The Visual and Data Journalism Team. (2020, November 01). US election 2020 polls: Who is ahead - Trump or Biden? Retrieved November 02, 2020, from https://www.bbc.com/news/election-us-2020-53657174
+
+
+
+
